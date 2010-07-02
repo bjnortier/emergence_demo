@@ -33,11 +33,24 @@ combine(Parent1, Parent2) ->
 
 
 fitness(String) ->
-    %% This will be the distance ffrom 0 to N
-    Distance = string_metrics:levenshtein(String, ?TARGET),
-    %% We want the fitness the be between 0.0 and 1.0, and since 
-    %% we know the max distance for this problem is 13
-    1 - Distance/13.
+    %% The fitness will simply be the number of correct
+    %% characters
+    {_, Match} = lists:foldl(fun(Char, {Pos, Match}) ->
+				     case lists:nth(Pos, ?TARGET) =:= Char  of
+					 true ->
+					     {Pos + 1, Match + 1};
+					 false ->
+					     {Pos + 1, Match}
+				     end
+			     end,
+			     {1, 0},
+			     String),
+    Match / 12.
+    %% %% This will be the distance ffrom 0 to N
+    %% Distance = string_metrics:levenshtein(String, ?TARGET),
+    %% %% We want the fitness the be between 0.0 and 1.0, and since 
+    %% %% we know the max distance for this problem is 13
+    %% 1 - Distance/13.
 
     
 to_phenotype(Genotype) ->

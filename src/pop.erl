@@ -1,6 +1,6 @@
 -module(pop).
 -behaviour(gen_server).
--export([start_link/0, start/0, stop/0]).
+-export([start_link/0, start/1, start/0, stop/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% gen_server exports
@@ -63,27 +63,14 @@ handle_cast({result, Genotype, Phenotype, Result}, State) ->
 			  lists:keyreplace(Phenotype, 2,
 					   State#state.population,
 					   {Genotype, Phenotype, Result})},
-    {noreply, State1};
+    {noreply, try_procreate(State1)};
 handle_cast(CastEvent, State) ->
-    io:format("Unknonw cast: ~p~n", [CastEvent]),
+    io:format("Unknown cast: ~p~n", [CastEvent]),
     {noreply, State}.
 
 
-handle_info({'EXIT', DeadPid, normal}, State) ->
-    %% Create a new member from two organisms with the highest fitness
-    NewGenotype = procreate(State#state.organism_module,
-			    State#state.population),
-
-    %% Remove the dead member
-    TrimmedPop = lists:filter(fun({_Genotype, Pid, _Fitness}) ->
-				      Pid /= DeadPid
-			      end,
-			      State#state.population),
-
-    NewPopulation = birth(NewGenotype, State#state.organism_module, TrimmedPop),
-
-    io:format("New population: ~p~n", [NewPopulation]),
-    {noreply, State#state{ population=NewPopulation}}.
+handle_info({'EXIT', _DeadPid, normal}, State) ->
+    {noreply, try_procreate(State)}.
 
 code_change(oldVsn, State, _Extra) ->
     {ok, State}.
@@ -99,36 +86,66 @@ seed(OrganismModule, Limit, Population) ->
     %% Add the organism with undefined fitness
     seed(OrganismModule, Limit, birth(Genotype, OrganismModule, Population)).
 
+
 birth(Genotype, OrganismModule, Population) ->
     Phenotype = create_phenotype(OrganismModule, Genotype),
     Pid = spawn_link(Phenotype),
     [{Genotype, Pid, undefined}|Population].
 
-procreate(OrganismModule, Population) ->
-    %% Eliminate organisms that don't have a fitness yet
+try_procreate(State) ->
+    %% Individuals with fitness 
+    OriginalPopulation = State#state.population,
     WithFitness= lists:filter(fun({_, _, Fitness}) ->
 				      Fitness /= undefined
 			      end,
-			      Population),
-    %% Sort the population by fitness
-    Sorted = lists:sort(fun({_, _, FitnessA}, {_, _, FitnessB}) ->
+			      OriginalPopulation),
+
+    Deceased = lists:sort(fun({_, _, FitnessA}, {_, _, FitnessB}) ->
+				  FitnessA =< FitnessB
+			  end,
+			  lists:filter(fun({_, Pid, _}) ->
+			   		       not is_process_alive(Pid)
+			   	       end,
+			   	       OriginalPopulation)),
+
+    %% If there are two or more individuals with a valid fitness
+    %% Then we bury the dead individual with the lowest fitness
+    if
+	(length(WithFitness) > 2) and (length(Deceased) >= 1) -> 
+	    procreate(State, WithFitness, Deceased);
+	true -> 
+	    State
+    end.
+
+
+
+procreate(State, WithFitness, Deceased) ->
+    OriginalPopulation = State#state.population,
+    OrganismModule = State#state.organism_module,
+    LeastFitDeceased = hd(Deceased), 
+    PopuationWithSpace = lists:delete(LeastFitDeceased, OriginalPopulation),
+
+    SortedByFitness = lists:sort(fun({_, _, FitnessA}, {_, _, FitnessB}) ->
 				FitnessA > FitnessB
 			end,
 			WithFitness),
     
-    io:format("~p~n", [Sorted]),
     %% TODO: Convert this to a distribution function
-    {GenotypeA, _, _} = lists:nth(1, Sorted),
-    {GenotypeB, _, _} = lists:nth(2, Sorted),
+    {GenotypeA, _, _} = lists:nth(1, SortedByFitness),
+    {GenotypeB, _, _} = lists:nth(2, SortedByFitness),
 
     Genotype1 = OrganismModule:combine(GenotypeA, GenotypeB),
-    ShouldMutate = random:uniform() > 0.5,
+    ShouldMutate = random:uniform() > 0.9,
     Genotype2 = if
 		    ShouldMutate -> OrganismModule:mutate(Genotype1);
 		    true -> Genotype1
 		end,
-    io:format("~p + ~p -> ~p~n", [GenotypeA, GenotypeB, Genotype2]),
-    Genotype2.
+    %%io:format("~p + ~p -> ~p~n", [GenotypeA, GenotypeB, Genotype2]),
+    
+    State#state{ population = birth(Genotype2, 
+				    OrganismModule,
+				    PopuationWithSpace)}.
+				    
 
 create_genotype(OrganismModule) ->
     OrganismModule:initial().
@@ -141,5 +158,5 @@ create_phenotype(OrganismModule, Genotype) ->
  	    Result = OrganismModule:fitness(Phenotype),
  	    gen_server:cast(?MODULE, {result, Genotype, self(), Result}),
  	    %% Keeps on living so it can procreate
- 	    timer:sleep(2000)
+ 	    timer:sleep(100)
     end.
