@@ -3,17 +3,46 @@ function debug(str) {
   $("#console").prepend('<br>');
 }
 
+// connectionState try_connect [0]|disconnected [1]|connected [2]
+var connectionState = -1;
+
+var connectingStage = 0;
+
+function updateState(newState) {
+    if (connectionState != newState) {
+	connectionState = newState;
+	updateWifi();
+    }
+
+}
+
+function updateWifi() {
+    if (connectionState == 0) {
+	$("#wifi").attr("src", "../img/wifi_" + connectingStage + ".png");
+	connectingStage = (connectingStage + 1) % 4;
+	setTimeout(updateWifi, 500);
+    } else if (connectionState == 1) {
+	$("#wifi").attr("src", "../img/wifi_none.png");
+    } else if (connectionState == 2) {
+	$("#wifi").attr("src", "../img/wifi_full.png");
+    }
+}
 
 function initws() {
 
     var ws = new WebSocket("ws://localhost:1234/websession");
 
     ws.onopen = function() {
-	$("#console").text("connected");
+	updateState(2);
     };
     
     txText = function(data) {
 	ws.send(data);
+    };
+
+    close = function() {
+	updateState(1);
+	ws.close();
     };
     
     ws.onmessage = function (evt) {
@@ -29,41 +58,17 @@ function initws() {
     };
 
     ws.onclose = function() {
-	$("#console").text("awaiting connection...");
-	setTimeout(initws, 1000);
+	// Set to try-connect if not manually disconnected
+	if (connectionState != 1) {
+	    updateState(0);
+	    setTimeout(initws, 500);
+	} 
     }
     
 }
 
 
 var ctx = document.getElementsByTagName('canvas')[0].getContext('2d');
-
-var lastX = ctx.canvas.width * Math.random();
-var lastY = ctx.canvas.height * Math.random();
-var hue = 0;
-function line() {
-    ctx.save();
-    ctx.translate(ctx.canvas.width/4, ctx.canvas.height/4);
-    ctx.scale(0.5, 0.5);
-    ctx.translate(-ctx.canvas.width/2, -ctx.canvas.height/2);
-    ctx.beginPath();
-    ctx.lineWidth = 5 + Math.random() * 10;
-    ctx.moveTo(lastX, lastY);
-    lastX = ctx.canvas.width * Math.random();
-    lastY = ctx.canvas.height * Math.random();
-    ctx.bezierCurveTo(ctx.canvas.width * Math.random(),
-                          ctx.canvas.height * Math.random(),
-                          ctx.canvas.width * Math.random(),
-                          ctx.canvas.height * Math.random(),
-                          lastX, lastY);
-
-    hue = hue + 10 * Math.random();
-    ctx.strokeStyle = 'hsl(' + hue + ', 50%, 50%)';
-    ctx.shadowColor = 'white';
-    ctx.shadowBlur = 10;
-    ctx.stroke();
-    ctx.restore();
-}
 
 var population = [];
 
@@ -117,18 +122,19 @@ function draw() {
 }
 
 
-
-/*function add() {
-    var fitness = Math.random();
-    var organism = {fitness: fitness,
-		    created: new Date().getTime()
-		   };
-    population.push(organism);
-}*/
-
+updateState(0);
 $(document).ready(function() {
     initws();
     setInterval(draw, 100);
-    /*add();
-    setInterval(add, 100);*/
   });
+
+$("#wifi").click(function() {
+    if (connectionState == 1) {
+	updateState(0);
+	initws();
+    } else {
+	close();
+    } 
+
+
+});
