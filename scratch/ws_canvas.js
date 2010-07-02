@@ -9,7 +9,7 @@ function initws() {
     var ws = new WebSocket("ws://localhost:1234/websession");
 
     ws.onopen = function() {
-	debug("connected.");
+	$("#console").text("connected");
     };
     
     txText = function(data) {
@@ -17,13 +17,19 @@ function initws() {
     };
     
     ws.onmessage = function (evt) {
-	debug("received: " + evt.data); 
+	//debug("received: " + evt.data); 
 	var data = JSON.parse(evt.data);
+	
+	var fitness = data.fitness;
+	var organism = {fitness: fitness,
+			created: new Date().getTime()
+		       };
+	population.push(organism);
 
     };
 
     ws.onclose = function() {
-	debug("socket closed");
+	$("#console").text("awaiting connection...");
 	setTimeout(initws, 1000);
     }
     
@@ -81,7 +87,7 @@ function draw() {
     var timeStamp = new Date().getTime();
     var splice = -1;
     for (var i = 0; i < population.length; ++i) {
-	if (timeStamp - population[i].created > 100000) {
+	if (timeStamp - population[i].created > 2000) {
 	    splice = i;
 	}
     }
@@ -100,7 +106,7 @@ function draw() {
 	ctx.shadowBlur = 10;
 
 
-	var x = ctx.canvas.width - (timeStamp - population[i].created)/50;
+	var x = ctx.canvas.width - (timeStamp - population[i].created)/2;
 	var y = ctx.canvas.height*(1-population[i].fitness);
 	ctx.arc(x,y,10,0,Math.PI*2, true); 
 	ctx.stroke();
@@ -112,17 +118,17 @@ function draw() {
 
 
 
-function add() {
+/*function add() {
     var fitness = Math.random();
     var organism = {fitness: fitness,
 		    created: new Date().getTime()
 		   };
     population.push(organism);
-}
+}*/
 
 $(document).ready(function() {
     initws();
     setInterval(draw, 100);
-    add();
-    setInterval(add, 100);
+    /*add();
+    setInterval(add, 100);*/
   });

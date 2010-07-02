@@ -42,7 +42,7 @@ stop() ->
 
 init(Args) ->
     process_flag(trap_exit, true),
-    PopLimit = proplists:get_value(population_limit, Args, 5), 
+    PopLimit = proplists:get_value(population_limit, Args, 10), 
     OrganismModule = proplists:get_value(organism_module, Args, hello_world), 
     State = #state { population = seed(OrganismModule, PopLimit, []),
 		     population_limit = PopLimit,
@@ -58,13 +58,15 @@ handle_call({}, _From, State) ->
 handle_call(stop, _From, State) ->
     {stop, normal, State}.
 
-handle_cast({result, Genotype, Phenotype, Result}, State) ->
-    io:format("result from ~p:~p -> ~p~n", [Genotype, Phenotype, Result]),
+handle_cast({fitness, Genotype, Phenotype, Fitness}, State) ->
+    websocket_server:send(
+      mochijson2:encode({struct, [{genotype, list_to_binary(Genotype)},
+     				  {fitness, Fitness}]})),
     
     State1 = State#state{ population = 
 			  lists:keyreplace(Phenotype, 2,
 					   State#state.population,
-					   {Genotype, Phenotype, Result})},
+					   {Genotype, Phenotype, Fitness})},
     {noreply, try_procreate(State1)};
 handle_cast(CastEvent, State) ->
     io:format("Unknown cast: ~p~n", [CastEvent]),
@@ -158,7 +160,7 @@ create_phenotype(OrganismModule, Genotype) ->
     Phenotype = OrganismModule:to_phenotype(Genotype),
     fun() ->
  	    Result = OrganismModule:fitness(Phenotype),
- 	    gen_server:cast(?MODULE, {result, Genotype, self(), Result}),
+ 	    gen_server:cast(?MODULE, {fitness, Genotype, self(), Result}),
  	    %% Keeps on living so it can procreate
  	    timer:sleep(100)
     end.
