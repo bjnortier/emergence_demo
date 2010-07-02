@@ -1,6 +1,7 @@
 -module(pop).
 -behaviour(gen_server).
--export([start_link/0, start/1, start/0, stop/0]).
+-export([start_link/0, start/1, 
+start/0, stop/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% gen_server exports
@@ -59,6 +60,7 @@ handle_call(stop, _From, State) ->
 
 handle_cast({result, Genotype, Phenotype, Result}, State) ->
     io:format("result from ~p:~p -> ~p~n", [Genotype, Phenotype, Result]),
+    
     State1 = State#state{ population = 
 			  lists:keyreplace(Phenotype, 2,
 					   State#state.population,
