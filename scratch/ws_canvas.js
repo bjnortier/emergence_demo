@@ -51,6 +51,7 @@ function initws() {
 	
 	var fitness = data.fitness;
 	var organism = {fitness: fitness,
+			genotype : data.genotype,
 			created: new Date().getTime()
 		       };
 	population.push(organism);
@@ -78,6 +79,16 @@ function fillFromFitness(norm_fitness) {
     return 'hsl(' + hue + ', 80%, 50%)';
 }
 
+function determineFittest() {
+    var fittest = population[0];
+    for (var i = 1; i < population.length; ++i) {
+	if (population[i].fitness > fittest.fitness) {
+	    fittest = population[i];
+	}
+    }
+    return fittest;
+}
+
 function draw() {
     // Interesting way to "blank" the canvas. Don't blank
     // it completely, but ue the opacity to make it fade out
@@ -86,13 +97,27 @@ function draw() {
     ctx.fillStyle = '#333';
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     
+    if (population.length > 0) {
+	var fittest = determineFittest();
+	ctx.font = '40px Arial';
+	ctx.fillStyle = 'white';
+	ctx.shadowColor = 'white';
+	ctx.shadowBlur = 2;
+
+	ctx.fillText(Math.ceil(fittest.fitness * 100) + "%", ctx.canvas.width - 120, 50, 100);
+	ctx.font = '20px Arial';
+	
+	ctx.fillText(fittest.genotype, ctx.canvas.width - 120, 80, 100)
+    }
+    
     ctx.save();
     ctx.scale(0.8, 0.8);
     ctx.translate(50, 50);
     var timeStamp = new Date().getTime();
     var splice = -1;
     for (var i = 0; i < population.length; ++i) {
-	if (timeStamp - population[i].created > 2000) {
+	var x = ctx.canvas.width - 100 - (timeStamp - population[i].created)/3;
+	if (x < -30) {
 	    splice = i;
 	}
     }
@@ -107,11 +132,8 @@ function draw() {
 	ctx.strokeStyle = '#white';
 	ctx.fillStyle = fillFromFitness(population[i].fitness);
 	ctx.lineWidth = 5;
-	ctx.shadowColor = 'white';
-	ctx.shadowBlur = 10;
 
-
-	var x = ctx.canvas.width - (timeStamp - population[i].created)/2;
+	var x =  -(timeStamp - population[i].created)/3.0 + ctx.canvas.width - 100;
 	var y = ctx.canvas.height*(1-population[i].fitness);
 	ctx.arc(x,y,10,0,Math.PI*2, true); 
 	ctx.stroke();

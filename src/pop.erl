@@ -139,7 +139,7 @@ procreate(State, WithFitness, Deceased) ->
     {GenotypeB, _, _} = lists:nth(2, SortedByFitness),
 
     Genotype1 = OrganismModule:combine(GenotypeA, GenotypeB),
-    ShouldMutate = random:uniform() > 0.9,
+    ShouldMutate = random:uniform() > 0.5,
     Genotype2 = if
 		    ShouldMutate -> OrganismModule:mutate(Genotype1);
 		    true -> Genotype1

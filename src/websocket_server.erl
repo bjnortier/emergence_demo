@@ -6,6 +6,9 @@
 	 set_listener/1,
 	 send/1
 	]).
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
 
 %% TODO:
 %% Support multiple client connections. See 
@@ -134,22 +137,20 @@ create_socket() ->
     
 
 try_handshake(Socket, Data) ->
-    case Data of
-	%% Chrome: "GET /websession HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nHost: localhost:1234\r\nOrigin: null\r\n\r\n"
-	"GET /websession HTTP/1.1\r\nUpgrade: WebSocket\r\n" ++ _
-	->
+    case parse_handshake(Data) of
+	{ok, Fields} ->
 	    %% Valid handshake received, send handshake reply
-	    io:format("Handshake received: ~p~n", [Data]),
+	    io:format("Handshake received: ~p~n", [Fields]),
 	    Handshake = [
 			 "HTTP/1.1 101 Web Socket Protocol Handshake\r\n",
 			 "Upgrade: WebSocket\r\n",
 			 "Connection: Upgrade\r\n",
-			 "WebSocket-Origin: file://\r\n",
+			 "WebSocket-Origin: " ++ proplists:get_value("Origin", Fields) ++ "\r\n",
 			 "WebSocket-Location: ws://localhost:1234/websession\r\n\r\n"
 			],
 	    gen_tcp:send(Socket, Handshake),
 	    true;
-	_ ->
+	{error, _} ->
 	    false
     end.
     
@@ -177,3 +178,57 @@ handle_message(Message, _) ->
     io:format("Message received, but no listener registered: ~p~n", [Message]).
     
 
+%%
+%% Safari example: 
+%% "GET /websession HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nHost: localhost:1234\r\nOrigin: file://\r\nCookie: __utma=111872281.3829786060766035000.1243542332.1276267522.1276538034.43; __utmz=111872281.1276096495.39.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __qca=P0-1885873285-1264527945225\r\n\r\n"
+%% Chrome example: 
+%% "GET /websession HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nHost: localhost:1234\r\nOrigin: null\r\n\r\n"
+parse_handshake(Data) ->
+    case Data of
+	"GET /websession HTTP/1.1\r\n" ++ Fields ->
+	    {ok, parse_fields(Fields)};
+	_ ->
+	    {error, handshake_preamble}
+    end.
+
+-define(IS_WHITESPACE(C),
+        (C =:= $\s orelse C =:= $\t orelse C =:= $\r orelse C =:= $\n)).
+
+parse_fields(Fields) ->    
+    parse_fields(string:tokens(Fields, "\r\n"), []).
+    
+parse_fields([NameValueString|Rest], Props) ->
+    ColonPosition = string:chr(NameValueString, $:),
+    Name = string:substr(NameValueString, 1, ColonPosition - 1),
+    Value = string:substr(NameValueString, ColonPosition + 1, length(NameValueString) - ColonPosition),
+    parse_fields(Rest, [{Name, string:strip(Value)} | Props]);
+parse_fields([], Props) ->
+    Props.
+
+-ifdef(TEST).
+     
+parse_handshake_test_() ->
+    [
+     ?_assertMatch({ok, [{"Origin","file://"},
+			 {"Host","localhost:1234"},
+			 {"Connection","Upgrade"},
+			 {"Upgrade","WebSocket"}]}, 
+		   parse_handshake("GET /websession HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nHost: localhost:1234\r\nOrigin: file://\r\n\r\n")),
+     ?_assertMatch({error, handshake_preamble}, 
+		   parse_handshake("GET foo"))
+    ].
+
+parse_fields_test_() ->
+    Parsed = parse_fields("Upgrade: WebSocket\r\nConnection: Upgrade\r\nHost: localhost:1234\r\nOrigin: file://\r\nCookie: __utma=111872281.3829786060766035000.1243542332.1276267522.1276538034.43; __utmz=111872281.1276096495.39.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __qca=P0-1885873285-1264527945225\r\n\r\n"),
+    [
+     ?_assertMatch("WebSocket", proplists:get_value("Upgrade", Parsed)),
+     ?_assertMatch("Upgrade", proplists:get_value("Connection", Parsed)),
+     ?_assertMatch("localhost:1234", proplists:get_value("Host", Parsed)),
+     ?_assertMatch("file://", proplists:get_value("Origin", Parsed)),
+     ?_assertMatch("__utma=111872281.3829786060766035000.1243542332.1276267522.1276538034.43; __utmz=111872281.1276096495.39.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __qca=P0-1885873285-1264527945225", 
+		   proplists:get_value("Cookie", Parsed))
+
+    ].
+    
+
+-endif.

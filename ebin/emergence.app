@@ -1,0 +1,9 @@
+{application,emergence,
+             [{description,[]},
+              {vsn,"1"},
+              {registered,[]},
+              {applications,[kernel,stdlib]},
+              {mod,{emergence_app,[]}},
+              {env,[]},
+              {modules,[demo,emergence_app,emergence_sup,hello_world,pop,
+                        string_metrics,websocket_server]}]}.
