@@ -5,5 +5,6 @@
               {applications,[kernel,stdlib]},
               {mod,{emergence_app,[]}},
               {env,[]},
-              {modules,[demo,emergence_app,emergence_sup,hello_world,pop,
-                        string_metrics,websocket_server]}]}.
+              {modules,[demo,emergence_app,emergence_sup,hello_world,
+                        mochijson2,mochinum,pop,string_metrics,
+                        websocket_server]}]}.

@@ -1,0 +1,47 @@
+Prerequisites:
+1. Erlang R13B4 or higher
+
+Getting started:
+
+1. Compile
+$./rebar compile
+==> emergence (compile)
+Compiled src/emergence_sup.erl
+Compiled src/emergence_app.erl
+Compiled src/demo.erl
+Compiled src/hello_world.erl
+Compiled src/pop.erl
+Compiled src/string_metrics.erl
+Compiled src/mochinum.erl
+Compiled src/websocket_server.erl
+Compiled src/mochijson2.erl
+
+2. Open the html file scratch/scrat4.html in your browser (NB This only works in Chrome at the moment)
+
+3. Start the demo in the Erlang shell:
+$erl -pa ebin
+Erlang R13B04 (erts-5.7.5) [source] [smp:2:2] [rq:2] [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.7.5  (abort with ^G)
+1> demo:start().
+Handshake received: [{"Origin","null"},
+                     {"Host","localhost:1234"},
+                     {"Connection","Upgrade"},
+                     {"Upgrade","WebSocket"}]
+{ok,<0.35.0>}
+2> 
+
+4. Restart the evolution:
+
+2> demo:stop(). 
+{'EXIT',{normal,{gen_server,call,[pop,stop]}}}
+3> demo:start().
+{ok,<0.5479.0>}
+Handshake received: [{"Origin","null"},
+                     {"Host","localhost:1234"},
+                     {"Connection","Upgrade"},
+                     {"Upgrade","WebSocket"}]
+4> 
+
+4. You can click the wifi symbol in the top left to disconnect/connect to a running server
+
